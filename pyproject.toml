@@ -29,6 +29,3 @@ testpaths = ["tests"]
 
 [tool.vercel]
 entrypoint = "finsight_app/main:app"
-
-[tool.vercel]
-entrypoint = "finsight_app.main:app"
