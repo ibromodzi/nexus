@@ -3,7 +3,12 @@
 __pycache__/
 .pytest_cache/
 .vincent/
+.env
+chroma_db/
 *.pyc
 .DS_Store
 chroma_finsight/
 *.pdf
+.env
+finsight_v2_enhanced_revised.ipynb
+finsight_v2_enhanced_revised.ipynb
