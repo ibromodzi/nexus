@@ -1,0 +1,14 @@
+-e .
+pytest>=8,<9
+fastapi
+uvicorn[standard]
+pydantic>=2.0
+pydantic-settings
+langgraph
+langchain-groq
+yfinance
+httpx
+textblob
+reportlab
+chromadb
+python-dotenv

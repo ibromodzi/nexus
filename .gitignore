@@ -1,0 +1,9 @@
+.venv/
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.vincent/
+*.pyc
+.DS_Store
+chroma_finsight/
+*.pdf

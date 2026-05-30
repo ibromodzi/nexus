@@ -1,0 +1,1 @@
+"""Core FinSight analysis engine."""

@@ -1,0 +1,873 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>FinSight — Risk Workstation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/static/styles.css"/>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- ══════════ SIDEBAR ══════════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M12 3 20 6v5c0 5.1-3.1 8.8-8 10-4.9-1.2-8-4.9-8-10V6l8-3Z" stroke="currentColor" stroke-width="2"/>
+          <path d="m8 12 2.4 2.4L16 8.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <span>FinSight</span>
+    </div>
+
+    <div class="nav-label">Analysis</div>
+    <nav class="nav" aria-label="Main navigation">
+      <button class="nav-item active" data-tab="overview">
+        <span class="nav-icon">⌁</span>Overview
+      </button>
+      <button class="nav-item" data-tab="watchlist">
+        <span class="nav-icon">◈</span>Watchlist
+        <span class="nav-count" id="watchlistCount" style="display:none"></span>
+      </button>
+      <button class="nav-item" data-tab="compare">
+        <span class="nav-icon">⇄</span>Compare
+      </button>
+      <button class="nav-item" data-tab="portfolio">
+        <span class="nav-icon">◫</span>Portfolio
+      </button>
+      <button class="nav-item" data-tab="backtest">
+        <span class="nav-icon">◷</span>Backtest
+      </button>
+      <button class="nav-item" data-tab="drivers">
+        <span class="nav-icon">≋</span>Drivers
+      </button>
+      <button class="nav-item" data-tab="evidence">
+        <span class="nav-icon">□</span>Evidence
+      </button>
+      <button class="nav-item" data-tab="validation">
+        <span class="nav-icon">✓</span>Validation
+      </button>
+    </nav>
+
+    <div class="nav-separator"></div>
+    <div class="nav-label">Monitoring</div>
+    <nav class="nav">
+      <button class="nav-item" data-tab="alerts">
+        <span class="nav-icon">◎</span>Alerts
+        <span class="nav-count" id="alertsCount" style="display:none"></span>
+      </button>
+    </nav>
+
+    <div class="nav-separator"></div>
+    <div class="nav-label">Output</div>
+    <nav class="nav">
+      <button class="nav-item" data-tab="report">
+        <span class="nav-icon">▤</span>Report
+      </button>
+      <button class="nav-item" data-tab="json">
+        <span class="nav-icon">{ }</span>JSON
+      </button>
+    </nav>
+
+    <section class="recent-card">
+      <div class="section-head">
+        <span>Recent Runs</span>
+        <span class="muted">local</span>
+      </div>
+      <div id="recentRuns" class="recent-list"></div>
+    </section>
+  </aside>
+
+  <!-- ══════════ WORKSPACE ══════════ -->
+  <main class="workspace">
+
+    <!-- Toolbar -->
+    <header class="toolbar">
+      <form id="analysisForm" class="analysis-form">
+        <input id="tickerInput" value="AAPL" maxlength="12" placeholder="e.g. TSLA" aria-label="Ticker symbol"/>
+        <button type="submit" class="primary-button">Analyze</button>
+      </form>
+      <div class="toolbar-meta">
+        <span id="lastRun">Ready</span>
+        <button id="watchlistButton" class="secondary-button" type="button">+ Add to Watchlist</button>
+        <button id="exportButton" class="secondary-button" type="button">Export JSON</button>
+        <button id="exportPdfButton" class="secondary-button" type="button">⬇ Export PDF</button>
+      </div>
+    </header>
+
+    <!-- Loading -->
+    <section id="loadingState" class="loading-card hidden">
+      <div>
+        <strong>Running analysis</strong>
+        <p>Collecting market, SEC, news, macro, scoring, and validation signals.</p>
+      </div>
+      <div class="loader"></div>
+    </section>
+
+    <!-- Live agentic pipeline -->
+    <section id="livePipelineContainer" class="live-pipeline-card hidden">
+      <div class="panel-head">
+        <h2 id="livePipelineTicker">Analyzing —</h2>
+        <span class="muted" style="font-size:12px">LangGraph · 8 nodes</span>
+      </div>
+      <div id="livePipelineSteps" class="live-pipeline-steps"></div>
+    </section>
+
+    <!-- Warnings -->
+    <section id="caveatStrip" class="caveat-strip hidden"></section>
+
+    <!-- ══ OVERVIEW TAB ══ -->
+    <section id="overview" class="tab-view active">
+
+      <div class="page-header">
+        <h1 id="pageTitle">Portfolio Risk Overview</h1>
+        <p id="pageSubtitle">Composite risk analysis powered by market, SEC, macro, and sentiment data.</p>
+      </div>
+
+      <!-- 4 KPI cards -->
+      <div class="kpi-row">
+
+        <!-- Card 1: Price -->
+        <div class="kpi-card">
+          <div class="kpi-body">
+            <div class="kpi-label">Current Price</div>
+            <div class="kpi-value" id="currentPrice">$--</div>
+            <div class="kpi-meta">
+              <span class="kpi-badge neutral" id="tickerBadge">--</span>
+              <span id="priceMeta" style="color:var(--text-4);font-size:12px;">Loading…</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Composite Risk Score -->
+        <div class="kpi-card kpi-dominant" id="scoreCard">
+          <div class="kpi-body">
+            <div class="kpi-label">Composite Risk Score</div>
+            <div class="kpi-value" id="scoreValue">--</div>
+            <div class="risk-scale"><i id="scoreNeedle"></i></div>
+            <div class="kpi-meta" style="margin-top:6px;">
+              <span style="font-size:11px;color:var(--text-4);">Lower is better · out of 100</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Risk Level + Recommendation -->
+        <div class="kpi-card">
+          <div class="kpi-body">
+            <div class="kpi-label">Risk Level</div>
+            <div class="kpi-value" id="riskLevel" style="font-size:20px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;">--</div>
+            <div class="kpi-meta">
+              <span class="kpi-badge neutral" id="recommendationBadge">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Validation + Quality -->
+        <div class="kpi-card">
+          <div class="kpi-body">
+            <div class="kpi-label">Validation</div>
+            <div class="kpi-value" id="validationStatus" style="font-size:20px;font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;">--</div>
+            <div class="kpi-meta">
+              <span class="kpi-badge neutral" id="qualityBadge">-- Quality</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /kpi-row -->
+
+      <!-- Score Breakdown + Trend -->
+      <section class="grid two">
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Score Breakdown</h2>
+            <span>Weighted contribution</span>
+          </div>
+          <div class="breakdown-layout">
+            <div class="donut" id="scoreDonut">
+              <div>
+                <strong id="donutScore">--</strong>
+                <span>/ 100</span>
+                <small id="donutRisk">--</small>
+              </div>
+            </div>
+            <div id="breakdownList" class="breakdown-list"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head">
+            <h2>Risk Score Trend</h2>
+            <span id="trendSubtitle">Local run history</span>
+          </div>
+          <svg id="trendChart" class="trend-chart" viewBox="0 0 640 210" role="img" aria-label="Risk score trend"></svg>
+          <div id="trendBacktestHint" class="trend-backtest-hint hidden">
+            <span>Showing scored history vs price —</span>
+            <button class="link-btn" onclick="switchToBacktest()">Open full backtest ↗</button>
+          </div>
+        </article>
+      </section>
+
+      <!-- Drivers + Quality + Sentiment -->
+      <section class="grid three">
+        <article class="panel">
+          <div class="panel-head"><h2>Key Drivers</h2><span>Top impact</span></div>
+          <div id="keyDrivers" class="driver-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><h2>Data Quality</h2><span>Provider status</span></div>
+          <div class="quality-layout">
+            <div>
+              <div class="mini-donut" id="qualityDonut"><span id="sourceCount">0</span></div>
+              <p style="text-align:center;margin-top:7px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text-4);">Sources</p>
+            </div>
+            <div id="qualityLegend" class="quality-legend"></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><h2>News Sentiment</h2><span>Headlines</span></div>
+          <div class="sentiment-layout">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+              <svg id="sentimentGauge" viewBox="0 0 160 82" width="140" height="72" aria-label="Sentiment gauge">
+                <!-- Track arc -->
+                <path id="gaugeTrack" d="" fill="none" stroke-width="12" stroke-linecap="round"/>
+                <!-- Fill arc -->
+                <path id="gaugeFill" d="" fill="none" stroke-width="12" stroke-linecap="round"/>
+                <!-- Needle -->
+                <line id="gaugeNeedle" x1="80" y1="72" x2="28" y2="72" stroke="var(--text-1)" stroke-width="2.5" stroke-linecap="round"/>
+                <circle id="gaugeDot" cx="80" cy="72" r="4" fill="var(--text-1)"/>
+                <!-- Labels -->
+                <text x="4"   y="78" font-size="8.5" fill="var(--text-4)" font-family="inherit">−1</text>
+                <text x="73"  y="12" font-size="8.5" fill="var(--text-4)" font-family="inherit">0</text>
+                <text x="141" y="78" font-size="8.5" fill="var(--text-4)" font-family="inherit">+1</text>
+              </svg>
+              <strong id="sentimentScore" class="sentiment-score" style="margin-top:2px;font-size:18px">N/A</strong>
+              <p id="sentimentLabel" style="font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text-4);margin:0">—</p>
+            </div>
+            <div id="headlineList" class="headline-list"></div>
+          </div>
+        </article>
+      </section>
+
+      <!-- Pipeline progress -->
+      <section class="progress-card">
+        <div class="panel-head">
+          <h2>Analysis Pipeline</h2>
+          <span id="progressCount">0 / 5</span>
+        </div>
+        <div id="progressSteps" class="progress-steps"></div>
+      </section>
+
+      <!-- Agentic Loop Status + Quant Signals -->
+      <section class="grid two">
+        <article class="panel">
+          <div class="panel-head"><h2>Agentic Loop</h2><span>Judge · Refine · Validate</span></div>
+          <div id="agenticPanel" class="agentic-panel"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><h2>Quant Signals</h2><span>RSI · Momentum · Macro overlay</span></div>
+          <div id="quantPanel" class="quant-panel"></div>
+        </article>
+      </section>
+
+      <!-- Headline Classifications -->
+      <article class="panel">
+        <div class="panel-head"><h2>Headline Classifications</h2><span>Groq semantic labels per article</span></div>
+        <div id="headlineClassifications" class="headline-classifications"></div>
+      </article>
+
+    </section><!-- /overview -->
+
+    <!-- ══ COMPARE TAB ══ -->
+    <section id="compare" class="tab-view">
+
+      <!-- Header + dual ticker inputs -->
+      <div class="cmp-header">
+        <div class="cmp-title-block">
+          <h1>Side-by-Side Comparison</h1>
+          <p>Analyze two tickers simultaneously across risk score, factor breakdown, drivers, and sentiment.</p>
+        </div>
+        <div class="cmp-inputs">
+          <div class="cmp-input-group" id="cmpLeftGroup">
+            <span class="cmp-side-label left">Ticker A</span>
+            <input id="cmpTickerA" class="cmp-ticker-input" value="AAPL" maxlength="12" placeholder="e.g. AAPL" aria-label="Ticker A"/>
+          </div>
+          <div class="cmp-vs">VS</div>
+          <div class="cmp-input-group" id="cmpRightGroup">
+            <span class="cmp-side-label right">Ticker B</span>
+            <input id="cmpTickerB" class="cmp-ticker-input" value="TSLA" maxlength="12" placeholder="e.g. TSLA" aria-label="Ticker B"/>
+          </div>
+          <button id="cmpRunBtn" class="primary-button" style="height:44px;padding:0 28px;font-size:14px;">Compare</button>
+        </div>
+      </div>
+
+      <!-- Loading states (one per side) -->
+      <div id="cmpLoadingBar" class="cmp-loading-bar hidden">
+        <div class="cmp-loading-inner">
+          <div class="loader" style="width:20px;height:20px;border-width:2px"></div>
+          <span id="cmpLoadingMsg">Running both analyses…</span>
+        </div>
+      </div>
+
+      <!-- Verdict banner -->
+      <div id="cmpVerdict" class="cmp-verdict hidden"></div>
+
+      <!-- ── KPI columns ── -->
+      <div id="cmpKpiRow" class="cmp-kpi-row hidden">
+        <!-- Left -->
+        <div class="cmp-col left">
+          <div class="cmp-col-header left" id="cmpHeaderA">--</div>
+          <div class="cmp-kpi-stack" id="cmpKpiA"></div>
+        </div>
+        <!-- Divider labels -->
+        <div class="cmp-divider-col">
+          <div class="cmp-divider-label">Price</div>
+          <div class="cmp-divider-label">Risk Score</div>
+          <div class="cmp-divider-label">Risk Level</div>
+          <div class="cmp-divider-label">Validation</div>
+        </div>
+        <!-- Right -->
+        <div class="cmp-col right">
+          <div class="cmp-col-header right" id="cmpHeaderB">--</div>
+          <div class="cmp-kpi-stack" id="cmpKpiB"></div>
+        </div>
+      </div>
+
+      <!-- ── Score breakdown overlay chart ── -->
+      <div id="cmpChartsRow" class="grid two hidden" style="margin-top:20px">
+        <article class="panel">
+          <div class="panel-head"><h2>Score Breakdown — Side by Side</h2><span>Factor contributions</span></div>
+          <div id="cmpBreakdownChart" class="cmp-bar-chart"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><h2>Factor Radar</h2><span>Normalized risk per factor</span></div>
+          <svg id="cmpRadar" class="cmp-radar" viewBox="0 0 400 340" role="img" aria-label="Factor radar chart"></svg>
+          <div id="cmpRadarLegend" class="cmp-radar-legend"></div>
+        </article>
+      </div>
+
+      <!-- ── Factor-by-factor table ── -->
+      <article id="cmpFactorPanel" class="panel hidden" style="margin-top:20px">
+        <div class="panel-head"><h2>Factor-by-Factor Analysis</h2><span>Direct comparison across all risk drivers</span></div>
+        <div class="table-wrap" style="border:none;border-radius:0;">
+          <table id="cmpFactorTable">
+            <thead>
+              <tr>
+                <th>Factor</th>
+                <th id="cmpThA" style="text-align:center">A</th>
+                <th style="text-align:center;color:var(--text-4);font-size:11px;">Δ Delta</th>
+                <th id="cmpThB" style="text-align:center">B</th>
+                <th style="text-align:center">Edge</th>
+              </tr>
+            </thead>
+            <tbody id="cmpFactorBody"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <!-- ── Sentiment + Drivers ── -->
+      <div id="cmpSentRow" class="grid two hidden" style="margin-top:20px">
+        <article class="panel">
+          <div class="panel-head"><h2>News Sentiment</h2><span>Headline sentiment scores</span></div>
+          <div id="cmpSentiment" class="cmp-sent-layout"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><h2>Top Risk Drivers</h2><span>Highest-contribution factors</span></div>
+          <div id="cmpDrivers" class="cmp-drivers-layout"></div>
+        </article>
+      </div>
+
+      <!-- Empty state -->
+      <div id="cmpEmpty" class="cmp-empty">
+        <div class="cmp-empty-icon">⇄</div>
+        <h2>Compare Any Two Tickers</h2>
+        <p>Enter two ticker symbols above and click <strong>Compare</strong> to run a parallel risk analysis.<br>See score breakdowns, factor deltas, sentiment, and a head-to-head verdict.</p>
+      </div>
+
+    </section><!-- /compare -->
+
+    <!-- ══ BACKTEST TAB ══ -->
+    <section id="backtest" class="tab-view">
+
+      <!-- Header + controls -->
+      <div class="bt-header">
+        <div class="bt-title-block">
+          <h1>Historical Backtest</h1>
+          <p>Risk score overlaid against actual price history. See whether elevated risk scores preceded real drawdowns.</p>
+        </div>
+        <div class="bt-controls">
+          <div class="bt-control-group">
+            <label class="bt-control-label">Ticker</label>
+            <input id="btTicker" class="cmp-ticker-input" style="width:100px" value="" maxlength="12" placeholder="AAPL"/>
+          </div>
+          <div class="bt-control-group">
+            <label class="bt-control-label">Period</label>
+            <select id="btPeriod" class="form-select" style="height:44px">
+              <option value="3mo">3 months</option>
+              <option value="6mo" selected>6 months</option>
+              <option value="1y">1 year</option>
+              <option value="2y">2 years</option>
+            </select>
+          </div>
+          <div class="bt-control-group">
+            <label class="bt-control-label">Interval</label>
+            <select id="btInterval" class="form-select" style="height:44px">
+              <option value="1d" selected>Daily</option>
+              <option value="1wk">Weekly</option>
+            </select>
+          </div>
+          <button id="btRunBtn" class="primary-button" style="height:44px;padding:0 24px;margin-top:18px">Run Backtest</button>
+        </div>
+      </div>
+
+      <!-- Stats strip -->
+      <div id="btStatsStrip" class="bt-stats-strip hidden"></div>
+
+      <!-- Loading -->
+      <div id="btLoading" class="cmp-loading-bar hidden">
+        <div class="cmp-loading-inner">
+          <div class="loader" style="width:20px;height:20px;border-width:2px"></div>
+          <span id="btLoadingMsg">Fetching price history…</span>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="btError" class="caveat-strip hidden" style="margin-bottom:16px"></div>
+
+      <!-- Main dual-axis chart -->
+      <article id="btChartPanel" class="panel hidden">
+        <div class="panel-head">
+          <h2 id="btChartTitle">Risk Score vs Price</h2>
+          <div class="bt-legend" id="btLegend"></div>
+        </div>
+        <div class="bt-chart-wrap">
+          <svg id="btChart" class="bt-chart" role="img" aria-label="Backtest chart"></svg>
+          <div id="btTooltip" class="bt-tooltip hidden"></div>
+        </div>
+        <div class="bt-xaxis" id="btXAxis"></div>
+      </article>
+
+      <!-- Signal events table -->
+      <article id="btSignalPanel" class="panel hidden" style="margin-top:20px">
+        <div class="panel-head">
+          <h2>Risk Signal Events</h2>
+          <span>Periods where risk score crossed high-risk threshold (≥50) and subsequent price outcome</span>
+        </div>
+        <div class="table-wrap" style="border:none;border-radius:0">
+          <table id="btSignalTable">
+            <thead>
+              <tr>
+                <th>Signal Date</th>
+                <th>Risk Score</th>
+                <th>Risk Level</th>
+                <th>Price at Signal</th>
+                <th>Price +7d</th>
+                <th>Price +30d</th>
+                <th>7d Return</th>
+                <th>30d Return</th>
+                <th>Prediction</th>
+              </tr>
+            </thead>
+            <tbody id="btSignalBody"></tbody>
+          </table>
+        </div>
+        <div id="btSignalEmpty" class="watchlist-empty hidden" style="padding:32px">
+          <p>No high-risk signal events found in this period.</p>
+          <p>Try a longer period or a ticker with more run history.</p>
+        </div>
+      </article>
+
+      <!-- Score distribution -->
+      <div id="btDistRow" class="grid two hidden" style="margin-top:20px">
+        <article class="panel">
+          <div class="panel-head"><h2>Score Distribution</h2><span>How often each risk band appeared</span></div>
+          <div id="btDistChart" class="bt-dist-chart"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><h2>Accuracy Summary</h2><span>Backtest prediction performance</span></div>
+          <div id="btAccuracy" class="bt-accuracy"></div>
+        </article>
+      </div>
+
+      <!-- Empty state -->
+      <div id="btEmpty" class="cmp-empty">
+        <div class="cmp-empty-icon">◷</div>
+        <h2>Historical Risk Backtest</h2>
+        <p>Select a ticker and period, then click <strong>Run Backtest</strong>.<br>
+        FinSight will overlay your stored risk scores against live price data and measure<br>
+        how accurately elevated risk scores predicted subsequent drawdowns.</p>
+      </div>
+
+    </section><!-- /backtest -->
+
+    <!-- ══ WATCHLIST TAB ══ -->
+    <section id="watchlist" class="tab-view">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+        <div>
+          <h1>Watchlist</h1>
+          <p>Monitor multiple tickers. Click a row to load its full analysis, or re-run to refresh.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+          <input id="watchlistAddInput" placeholder="Add ticker…" maxlength="12"
+            style="width:140px;height:36px;padding:0 12px;border:1.5px solid var(--border-2);
+            border-radius:var(--radius-sm);font-size:13px;font-family:'DM Mono',monospace;
+            text-transform:uppercase;letter-spacing:.06em;outline:none;background:var(--white);color:var(--text-1);"/>
+          <button id="watchlistAddBtn" class="primary-button" style="height:36px;padding:0 16px;">Add</button>
+        </div>
+      </div>
+
+      <!-- Summary strip -->
+      <div class="watchlist-summary" id="watchlistSummary"></div>
+
+      <!-- Main table -->
+      <article class="panel" style="padding:0;overflow:hidden;">
+        <div class="table-wrap" style="border:none;border-radius:0;">
+          <table id="watchlistTable">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Company</th>
+                <th>Price</th>
+                <th>Risk Score</th>
+                <th>Risk Level</th>
+                <th>Recommendation</th>
+                <th>Last Analyzed</th>
+                <th>Status</th>
+                <th style="width:120px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="watchlistBody"></tbody>
+          </table>
+        </div>
+        <div id="watchlistEmpty" class="watchlist-empty hidden">
+          <p>No tickers in your watchlist yet.</p>
+          <p>Analyze a ticker and click <strong>+ Add to Watchlist</strong>, or type a ticker above.</p>
+        </div>
+      </article>
+    </section>
+
+    <!-- ══ PORTFOLIO TAB ══ -->
+    <section id="portfolio" class="tab-view">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+        <div>
+          <h1>Portfolio Analysis</h1>
+          <p>Run parallel risk analysis across multiple tickers, then get a cross-portfolio synthesis with concentration warnings and correlation notes.</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:4px;">
+          <input id="portfolioTickersInput" placeholder="AAPL, NVDA, MSFT…" maxlength="80"
+            style="width:240px;height:36px;padding:0 12px;border:1.5px solid var(--border-2);
+            border-radius:var(--radius-sm);font-size:13px;font-family:'DM Mono',monospace;
+            text-transform:uppercase;letter-spacing:.06em;outline:none;background:var(--white);color:var(--text-1);"/>
+          <button id="portfolioRunBtn" class="primary-button" style="height:36px;padding:0 16px;">Run Portfolio</button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="portfolioLoading" class="cmp-loading-bar hidden">
+        <div class="cmp-loading-inner">
+          <div class="loader" style="width:20px;height:20px;border-width:2px"></div>
+          <span id="portfolioLoadingMsg">Running portfolio analysis…</span>
+        </div>
+      </div>
+
+      <!-- Error -->
+      <div id="portfolioError" class="caveat-strip hidden" style="margin-bottom:16px"></div>
+
+      <!-- Synthesis header -->
+      <div id="portfolioSynthesisPanel" class="hidden">
+        <div class="kpi-row" id="portfolioKpiRow"></div>
+
+        <section class="grid two" style="margin-top:20px">
+          <article class="panel">
+            <div class="panel-head"><h2>Concentration Warnings</h2><span>Sector &amp; regime concentration</span></div>
+            <div id="portfolioWarnings" class="driver-list"></div>
+          </article>
+          <article class="panel">
+            <div class="panel-head"><h2>Correlation Notes</h2><span>Cross-ticker co-movement</span></div>
+            <div id="portfolioCorrelation" style="padding:8px 0;color:var(--text-2);font-size:13px;line-height:1.6;"></div>
+          </article>
+        </section>
+
+        <article class="panel" style="margin-top:20px">
+          <div class="panel-head"><h2>Portfolio Summary</h2><span>AI synthesis</span></div>
+          <p id="portfolioSummaryText" style="color:var(--text-2);font-size:13px;line-height:1.7;padding:4px 0;"></p>
+        </article>
+
+        <!-- Individual holdings table -->
+        <article class="panel" style="margin-top:20px;padding:0;overflow:hidden;">
+          <div class="panel-head" style="padding:16px 20px;">
+            <h2>Individual Holdings</h2>
+            <span id="portfolioHoldingCount"></span>
+          </div>
+          <div class="table-wrap" style="border:none;border-radius:0;">
+            <table id="portfolioHoldingsTable">
+              <thead>
+                <tr>
+                  <th>Ticker</th>
+                  <th>Risk Level</th>
+                  <th>Score</th>
+                  <th>Recommendation</th>
+                  <th>Trend</th>
+                  <th>Judge</th>
+                  <th>Bias</th>
+                  <th>Data Quality</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="portfolioHoldingsBody"></tbody>
+            </table>
+          </div>
+        </article>
+
+        <!-- Full text output -->
+        <article class="panel" style="margin-top:20px">
+          <div class="panel-head"><h2>Full Portfolio Report</h2><span>Text output</span></div>
+          <pre id="portfolioReportText" class="report-text"></pre>
+        </article>
+      </div>
+
+      <!-- Empty state -->
+      <div id="portfolioEmpty" class="cmp-empty">
+        <div class="cmp-empty-icon">◫</div>
+        <h2>Multi-Ticker Portfolio Analysis</h2>
+        <p>Enter comma-separated ticker symbols above (e.g. <strong>AAPL, NVDA, MSFT</strong>) and click <strong>Run Portfolio</strong>.<br>
+        Each ticker runs the full LangGraph pipeline in parallel. A cross-portfolio synthesis follows with concentration warnings, correlation notes, and an overall risk rating.</p>
+      </div>
+    </section><!-- /portfolio -->
+
+    <!-- ══ DRIVERS TAB ══ -->
+    <section id="drivers" class="tab-view">
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Decision Trail</h2>
+          <span>Raw value → normalized risk → contribution</span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Factor</th><th>Raw Value</th><th>Normalized Risk</th>
+                <th>Weight</th><th>Contribution</th><th>Status</th><th>Source</th>
+              </tr>
+            </thead>
+            <tbody id="driversTable"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+
+    <!-- ══ EVIDENCE TAB ══ -->
+    <section id="evidence" class="tab-view">
+      <div id="evidenceGrid" class="grid two"></div>
+    </section>
+
+    <!-- ══ VALIDATION TAB ══ -->
+    <section id="validation" class="tab-view">
+      <div class="grid two">
+        <article class="panel">
+          <div class="panel-head"><h2>Validation Checks</h2><span>Deterministic final gate</span></div>
+          <div id="validationPanel" class="validation-panel"></div>
+        </article>
+        <article class="panel">
+          <div class="panel-head"><h2>Bias &amp; Compliance</h2><span>Sentiment bias audit · compliance filter</span></div>
+          <div id="biasPanel" class="validation-panel"></div>
+        </article>
+      </div>
+      <article class="panel" style="margin-top:20px">
+        <div class="panel-head"><h2>Sources</h2><span>Data provenance</span></div>
+        <div id="sourcesPanel"></div>
+      </article>
+    </section>
+
+    <!-- ══ REPORT TAB ══ -->
+    <section id="report" class="tab-view">
+      <article class="panel">
+        <div class="panel-head"><h2>Report</h2><span>Human-readable output</span></div>
+        <pre id="reportText" class="report-text"></pre>
+      </article>
+    </section>
+
+    <!-- ══ ALERTS TAB ══ -->
+    <section id="alerts" class="tab-view">
+      <div class="page-header" style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;">
+        <div>
+          <h1>Alerts &amp; Scheduling</h1>
+          <p>Set risk thresholds per ticker and schedule automatic refresh intervals. You'll be notified in-app when conditions are breached.</p>
+        </div>
+        <button class="primary-button" id="addAlertBtn" type="button">+ New Alert Rule</button>
+      </div>
+
+      <!-- Summary strip -->
+      <div class="alert-summary" id="alertSummary"></div>
+
+      <!-- Active alert rules table -->
+      <article class="panel" style="padding:0;overflow:hidden;">
+        <div class="panel-head" style="padding:16px 20px;">
+          <h2>Alert Rules</h2>
+          <span id="alertRulesCount">0 rules</span>
+        </div>
+        <div class="table-wrap" style="border:none;border-radius:0;">
+          <table id="alertRulesTable">
+            <thead>
+              <tr>
+                <th>Ticker</th>
+                <th>Condition</th>
+                <th>Threshold</th>
+                <th>Schedule</th>
+                <th>Status</th>
+                <th>Last Triggered</th>
+                <th>Next Run</th>
+                <th style="width:100px;text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="alertRulesBody"></tbody>
+          </table>
+        </div>
+        <div id="alertRulesEmpty" class="watchlist-empty hidden">
+          <p>No alert rules configured yet.</p>
+          <p>Click <strong>+ New Alert Rule</strong> to monitor a ticker with a threshold or schedule.</p>
+        </div>
+      </article>
+
+      <!-- Notification log -->
+      <article class="panel">
+        <div class="panel-head">
+          <h2>Notification Log</h2>
+          <button class="secondary-button" id="clearNotifBtn" type="button" style="height:30px;padding:0 12px;font-size:12px;">Clear All</button>
+        </div>
+        <div id="notifLog" class="notif-log"></div>
+        <div id="notifLogEmpty" class="watchlist-empty" style="padding:32px;">
+          <p>No notifications yet.</p>
+          <p>Alerts will appear here when thresholds are breached or scheduled refreshes complete.</p>
+        </div>
+      </article>
+    </section>
+
+    <!-- ══ JSON TAB ══ -->
+    <section id="json" class="tab-view">
+      <article class="panel">
+        <div class="panel-head"><h2>API Response</h2><span>Consumable JSON</span></div>
+        <pre id="jsonText" class="json-text"></pre>
+      </article>
+    </section>
+
+  </main>
+</div>
+<!-- ══ ALERT CONFIG MODAL ══ -->
+<div id="alertModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="alertModalTitle">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="alertModalTitle">Configure Alert Rule</h2>
+      <button class="modal-close" id="alertModalClose" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label class="form-label">Ticker Symbol</label>
+        <input id="alertTicker" class="form-input mono" placeholder="e.g. TSLA" maxlength="12" style="text-transform:uppercase"/>
+      </div>
+
+      <div class="form-section-label">Trigger Conditions</div>
+
+      <div class="form-row toggle-row">
+        <div class="toggle-info">
+          <span class="form-label" style="margin:0">Score threshold breach</span>
+          <span class="form-hint">Fire when risk score crosses above or below a number</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="alertScoreEnabled" checked/>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="alertScoreConfig" class="form-indent">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <select id="alertScoreDir" class="form-select" style="width:140px">
+            <option value="above">Score above</option>
+            <option value="below">Score below</option>
+          </select>
+          <input id="alertScoreVal" type="number" min="0" max="100" value="60" class="form-input mono" style="width:80px"/>
+          <span style="font-size:12px;color:var(--text-4)">out of 100</span>
+        </div>
+      </div>
+
+      <div class="form-row toggle-row" style="margin-top:12px">
+        <div class="toggle-info">
+          <span class="form-label" style="margin:0">Risk level change</span>
+          <span class="form-hint">Fire when risk level transitions (e.g. Low → High)</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="alertLevelEnabled"/>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+
+      <div class="form-section-label" style="margin-top:20px">Scheduling</div>
+
+      <div class="form-row toggle-row">
+        <div class="toggle-info">
+          <span class="form-label" style="margin:0">Interval refresh</span>
+          <span class="form-hint">Re-analyze automatically every N minutes</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="alertIntervalEnabled"/>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="alertIntervalConfig" class="form-indent hidden">
+        <div style="display:flex;gap:12px;align-items:center;">
+          <span style="font-size:13px;color:var(--text-3)">Every</span>
+          <select id="alertIntervalVal" class="form-select" style="width:160px">
+            <option value="5">5 minutes</option>
+            <option value="15" selected>15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="240">4 hours</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row toggle-row" style="margin-top:12px">
+        <div class="toggle-info">
+          <span class="form-label" style="margin:0">Scheduled time</span>
+          <span class="form-hint">Run once per day at a specific local time</span>
+        </div>
+        <label class="toggle-switch">
+          <input type="checkbox" id="alertTimeEnabled"/>
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="alertTimeConfig" class="form-indent hidden">
+        <input type="time" id="alertTimeVal" value="09:00" class="form-input" style="width:130px"/>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="secondary-button" id="alertModalCancel">Cancel</button>
+      <button class="primary-button" id="alertModalSave">Save Rule</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ NOTIFICATION CENTRE (top-right panel) ══ -->
+<div id="notifCentre" class="notif-centre hidden">
+  <div class="notif-centre-head">
+    <span>Notifications</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn-sm ghost" id="notifMarkAll">Mark all read</button>
+      <button class="modal-close" id="notifCentreClose">✕</button>
+    </div>
+  </div>
+  <div id="notifCentreList" class="notif-centre-list"></div>
+</div>
+
+<button id="notifBell" class="notif-bell" title="Notifications" aria-label="Open notifications">
+  <svg viewBox="0 0 20 20" fill="none"><path d="M10 2a6 6 0 0 0-6 6v2.586l-1.707 1.707A1 1 0 0 0 3 14h14a1 1 0 0 0 .707-1.707L16 10.586V8a6 6 0 0 0-6-6ZM8 16a2 2 0 1 0 4 0H8Z" fill="currentColor"/></svg>
+  <span id="notifBadge" class="notif-badge hidden">0</span>
+</button>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

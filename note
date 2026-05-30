@@ -1,0 +1,17 @@
+Critical gaps (must-haves before selling)
+The biggest issue is that there's no user system at all — no login, no accounts, no way to save work between sessions. Right now everything lives in localStorage which means data disappears when someone clears their browser. You'd need authentication, persistent storage (a real database), and per-user history. Related to this, there's no portfolio view — users can only analyze one ticker at a time, but any serious buyer wants to monitor a watchlist of 10–50 positions simultaneously with at-a-glance status across all of them.
+The analysis itself also has no scheduling or alerting. A risk workstation that requires manual triggering has limited value — buyers expect to set a threshold (e.g. "alert me if TSLA risk score crosses 60") and get notified via email or Slack without opening the app.
+
+High-value features that justify pricing
+A comparison mode — analyze two tickers side by side — is something Bloomberg charges thousands for and is highly requested. A PDF/Excel export of the full report (not just JSON) would make this usable in investment committee meetings. Historical backtesting showing how the risk score predicted actual price movements would be the single biggest credibility feature. Right now the trend chart only shows your own run history, not actual scored history against price.
+The news sentiment section is currently just headlines with a score number. Showing sentiment broken down by topic (earnings, regulatory, macro, management) and overlaid against the price chart would make it genuinely analytical rather than decorative.
+
+UX polish that signals professionalism
+The toolbar has no search history or autocomplete — users have to remember tickers. The loading state gives no granular feedback (which of the 5 steps is currently running). There's no empty state design for first-time users. The Evidence tab is essentially a raw data dump — it needs formatting and context to be useful to non-engineers. The Drivers table is good but has no sorting or filtering.
+Mobile is technically responsive but the product is clearly desktop-only, which is fine — but that should be explicit.
+
+Monetisation-readiness
+You'd need a pricing page with tier logic baked into the API — e.g. free tier gets 10 analyses/day, paid gets unlimited + alerts + PDF export. An API key system so developers can query your /api/analyze endpoint programmatically (this is actually a strong B2B angle — sell the risk scoring as an API, not just the UI). Usage analytics so you can see what tickers people are analyzing and what features they use.
+
+The one thing I'd prioritise first
+Build the portfolio watchlist — a table of saved tickers with their current risk scores, last-run timestamps, and a one-click re-analyze button. That single feature changes the product from a calculator to a monitoring dashboard, which is a fundamentally different (and much more valuable) category. Everything else can iterate after that.
