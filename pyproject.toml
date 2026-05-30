@@ -28,4 +28,4 @@ include = ["finsight*"]
 testpaths = ["tests"]
 
 [tool.vercel]
-entrypoint = "finsight_app/main:app"
+entrypoint = "finsight_app.main:app"
