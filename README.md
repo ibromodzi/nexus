@@ -176,5 +176,5 @@ nexus/
 ## Author
 
 **Dhikrullah Ibromodzi**
-Optometrist · Clinical NLP Researcher · ML Engineer
-[GitHub](https://github.com/ibromodzi) · [LinkedIn](https://linkedin.com/in/ibromodzi)
+Optometrist · ML Engineer
+[GitHub](https://github.com/ibromodzi) · [LinkedIn](https://linkedin.com/in/dhikrullah)
