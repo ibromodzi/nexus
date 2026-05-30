@@ -26,3 +26,6 @@ include = ["finsight*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.vercel]
+entrypoint = "finsight_app/main:app"
